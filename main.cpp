@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -6,6 +7,17 @@
 #include <vector>
 
 using namespace std;
+
+struct RouteResult {
+    vector<int> route;
+    long long cost = 0;
+};
+
+struct ExactResult {
+    RouteResult best;
+    RouteResult worst;
+    long long examinedRoutes = 0;
+};
 
 void printMatrix(const vector<vector<int>>& matrix) {
     int n = static_cast<int>(matrix.size());
@@ -52,6 +64,54 @@ int readInt(const string& message, int minimum, int maximum) {
     }
 }
 
+void printRoute(const RouteResult& result) {
+    for (size_t i = 0; i < result.route.size(); ++i) {
+        cout << result.route[i] + 1 << " -> ";
+    }
+    cout << result.route.front() + 1 << " | cost = " << result.cost << '\n';
+}
+
+long long calculateRouteCost(const vector<int>& route,
+                             const vector<vector<int>>& matrix) {
+    long long cost = 0;
+    for (size_t i = 0; i + 1 < route.size(); ++i) {
+        cost += matrix[route[i]][route[i + 1]];
+    }
+    cost += matrix[route.back()][route.front()];
+    return cost;
+}
+
+ExactResult solveExactly(const vector<vector<int>>& matrix, int startCity) {
+    int n = static_cast<int>(matrix.size());
+    vector<int> otherCities;
+    for (int city = 0; city < n; ++city) {
+        if (city != startCity) {
+            otherCities.push_back(city);
+        }
+    }
+
+    ExactResult answer;
+    answer.best.cost = numeric_limits<long long>::max();
+    answer.worst.cost = numeric_limits<long long>::min();
+
+    do {
+        vector<int> currentRoute;
+        currentRoute.push_back(startCity);
+        currentRoute.insert(currentRoute.end(), otherCities.begin(), otherCities.end());
+        long long currentCost = calculateRouteCost(currentRoute, matrix);
+        ++answer.examinedRoutes;
+
+        if (currentCost < answer.best.cost) {
+            answer.best = {currentRoute, currentCost};
+        }
+        if (currentCost > answer.worst.cost) {
+            answer.worst = {currentRoute, currentCost};
+        }
+    } while (next_permutation(otherCities.begin(), otherCities.end()));
+
+    return answer;
+}
+
 int main() {
     random_device device;
     mt19937 generator(device());
@@ -60,9 +120,16 @@ int main() {
     int n = readInt("Number of cities (2..12): ", 2, 12);
     int minCost = readInt("Minimum edge cost (1..1000000): ", 1, 1000000);
     int maxCost = readInt("Maximum edge cost (min..1000000): ", minCost, 1000000);
+    int startCity = readInt("Starting city (1..n): ", 1, n) - 1;
 
     vector<vector<int>> matrix = createRandomMatrix(n, minCost, maxCost, generator);
     cout << "Cost matrix:\n";
     printMatrix(matrix);
+    ExactResult exact = solveExactly(matrix, startCity);
+    cout << "Exact algorithm (examined " << exact.examinedRoutes << " routes):\n";
+    cout << "  Best:  ";
+    printRoute(exact.best);
+    cout << "  Worst: ";
+    printRoute(exact.worst);
     return 0;
 }
