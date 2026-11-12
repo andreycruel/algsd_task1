@@ -182,17 +182,68 @@ void runOneComparison(const vector<vector<int>>& matrix, int startCity,
     cout << "  Quality: " << heuristicQuality(exact, heuristic) << "%\n";
 }
 
+void runExperiment(int runs, int minCost, int maxCost, mt19937& generator) {
+    const vector<int> sizes = {4, 6, 8, 10};
+    cout << "\n=== EXPERIMENT ===\n";
+    cout << "Costs are random integers in [" << minCost << ", " << maxCost << "]\n";
+    cout << "The starting city is 1. The graph is directed.\n\n";
+
+    for (int n : sizes) {
+        cout << "----- Matrix " << n << " x " << n << " -----\n";
+        for (int attempt = 1; attempt <= runs; ++attempt) {
+            cout << "Run " << attempt << ":\n";
+            vector<vector<int>> matrix = createRandomMatrix(n, minCost, maxCost, generator);
+            runOneComparison(matrix, 0, false);
+            cout << '\n';
+        }
+    }
+}
+
+bool runSelfTest() {
+    const vector<vector<int>> matrix = {
+        {0, 10, 15, 20},
+        {5, 0, 9, 10},
+        {6, 13, 0, 12},
+        {8, 8, 9, 0}
+    };
+
+    ExactResult exact = solveExactly(matrix, 0);
+    RouteResult heuristic = solveByNearestNeighbour(matrix, 0);
+    bool passed = exact.best.cost == 35 && exact.worst.cost == 47 &&
+                  exact.examinedRoutes == 6 && heuristic.cost == 39;
+
+    cout << "Self-test matrix result:\n";
+    cout << "  Expected best/worst/heuristic: 35 / 47 / 39\n";
+    cout << "  Actual best/worst/heuristic: " << exact.best.cost << " / "
+         << exact.worst.cost << " / " << heuristic.cost << '\n';
+    cout << (passed ? "  SELF-TEST PASSED\n" : "  SELF-TEST FAILED\n");
+    return passed;
+}
+
 int main() {
     random_device device;
     mt19937 generator(device());
 
     cout << "\n";
-    int n = readInt("Number of cities (2..12): ", 2, 12);
-    int minCost = readInt("Minimum edge cost (1..1000000): ", 1, 1000000);
-    int maxCost = readInt("Maximum edge cost (min..1000000): ", minCost, 1000000);
-    int startCity = readInt("Starting city (1..n): ", 1, n) - 1;
+    cout << "1 - one random comparison\n";
+    cout << "2 - standard experiment (4, 6, 8, 10 cities; 4 runs each)\n";
+    cout << "3 - deterministic self-test\n";
+    int mode = readInt("Choose mode: ", 1, 3);
 
-    vector<vector<int>> matrix = createRandomMatrix(n, minCost, maxCost, generator);
-    runOneComparison(matrix, startCity, true);
-    return 0;
+    if (mode == 1) {
+        int n = readInt("Number of cities (2..12): ", 2, 12);
+        int minCost = readInt("Minimum edge cost (1..1000000): ", 1, 1000000);
+        int maxCost = readInt("Maximum edge cost (min..1000000): ", minCost, 1000000);
+        int startCity = readInt("Starting city (1..n): ", 1, n) - 1;
+        vector<vector<int>> matrix = createRandomMatrix(n, minCost, maxCost, generator);
+        runOneComparison(matrix, startCity, true);
+        return 0;
+    }
+
+    if (mode == 2) {
+        runExperiment(4, 1, 100, generator);
+        return 0;
+    }
+
+    return runSelfTest() ? 0 : 1;
 }
