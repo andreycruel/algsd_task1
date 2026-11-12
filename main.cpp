@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -112,6 +113,75 @@ ExactResult solveExactly(const vector<vector<int>>& matrix, int startCity) {
     return answer;
 }
 
+RouteResult solveByNearestNeighbour(const vector<vector<int>>& matrix,
+                                    int startCity) {
+    int n = static_cast<int>(matrix.size());
+    vector<bool> visited(n, false);
+    vector<int> route;
+    int currentCity = startCity;
+
+    visited[currentCity] = true;
+    route.push_back(currentCity);
+
+    for (int step = 1; step < n; ++step) {
+        int nextCity = -1;
+        int smallestCost = numeric_limits<int>::max();
+
+        for (int candidate = 0; candidate < n; ++candidate) {
+            if (!visited[candidate] &&
+                matrix[currentCity][candidate] < smallestCost) {
+                smallestCost = matrix[currentCity][candidate];
+                nextCity = candidate;
+            }
+        }
+
+        visited[nextCity] = true;
+        route.push_back(nextCity);
+        currentCity = nextCity;
+    }
+    return {route, calculateRouteCost(route, matrix)};
+}
+
+double heuristicQuality(const ExactResult& exact, const RouteResult& heuristic) {
+    long long range = exact.worst.cost - exact.best.cost;
+    if (range == 0) {
+        return 100.0;
+    }
+    return 100.0 * static_cast<double>(exact.worst.cost - heuristic.cost) / range;
+}
+
+void runOneComparison(const vector<vector<int>>& matrix, int startCity,
+                      bool showMatrix) {
+    if (showMatrix) {
+        cout << "Cost matrix:\n";
+        printMatrix(matrix);
+    }
+
+    auto exactStart = chrono::high_resolution_clock::now();
+    ExactResult exact = solveExactly(matrix, startCity);
+    auto exactFinish = chrono::high_resolution_clock::now();
+
+    auto heuristicStart = chrono::high_resolution_clock::now();
+    RouteResult heuristic = solveByNearestNeighbour(matrix, startCity);
+    auto heuristicFinish = chrono::high_resolution_clock::now();
+
+    auto exactTime = chrono::duration_cast<chrono::microseconds>(exactFinish - exactStart);
+    auto heuristicTime = chrono::duration_cast<chrono::microseconds>(heuristicFinish - heuristicStart);
+
+    cout << "Exact algorithm (examined " << exact.examinedRoutes << " routes):\n";
+    cout << "  Best:  ";
+    printRoute(exact.best);
+    cout << "  Worst: ";
+    printRoute(exact.worst);
+    cout << "  Time: " << exactTime.count() << " microseconds\n";
+    cout << "Nearest-neighbour heuristic:\n";
+    cout << "  Route: ";
+    printRoute(heuristic);
+    cout << "  Time: " << heuristicTime.count() << " microseconds\n";
+    cout << fixed << setprecision(2);
+    cout << "  Quality: " << heuristicQuality(exact, heuristic) << "%\n";
+}
+
 int main() {
     random_device device;
     mt19937 generator(device());
@@ -123,13 +193,6 @@ int main() {
     int startCity = readInt("Starting city (1..n): ", 1, n) - 1;
 
     vector<vector<int>> matrix = createRandomMatrix(n, minCost, maxCost, generator);
-    cout << "Cost matrix:\n";
-    printMatrix(matrix);
-    ExactResult exact = solveExactly(matrix, startCity);
-    cout << "Exact algorithm (examined " << exact.examinedRoutes << " routes):\n";
-    cout << "  Best:  ";
-    printRoute(exact.best);
-    cout << "  Worst: ";
-    printRoute(exact.worst);
+    runOneComparison(matrix, startCity, true);
     return 0;
 }
